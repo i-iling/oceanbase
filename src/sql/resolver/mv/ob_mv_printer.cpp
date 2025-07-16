@@ -70,35 +70,28 @@ namespace oceanbase
         ObObjPrintParams obj_print_params(mv_def_stmt_.get_query_ctx()->get_timezone_info());
         obj_print_params.print_origin_stmt_ = true;
         obj_print_params.not_print_internal_catalog_ = true;
+
+        ObGlobalHint &global_hint = mv_def_stmt_.get_query_ctx()->get_query_hint_for_update().get_global_hint();
+        // 1. 开启并行DML
+        global_hint.merge_parallel_dml_hint(ObPDMLOption::ENABLE);
+
+        // 2. 设置并行度
+        global_hint.merge_parallel_hint(8);
+        global_hint.merge_dml_parallel_hint(8);
+
+        // 3. 开启旁路导入
+        ObDirectLoadHint direct_load_hint;
+        direct_load_hint.has_direct_ = true; // 关键标志位
+        direct_load_hint.has_no_direct_ = false;
+        direct_load_hint.load_method_ = global_hint.direct_load_hint_.load_method_;
+        direct_load_hint.need_sort_ = global_hint.direct_load_hint_.need_sort_;
+        direct_load_hint.max_error_row_count_ = global_hint.direct_load_hint_.max_error_row_count_;
+        // direct_load_hint.need_sort_ = false; // 根据需求设置
+        // direct_load_hint.has_no_direct_ = false;
+        global_hint.merge_direct_load_hint(direct_load_hint);
+
         for (int64_t i = 0; OB_SUCC(ret) && i < dml_stmts.count(); ++i)
         {
-
-          ObDMLStmt *stmt = dml_stmts.at(i);
-
-          // 为每个刷新操作添加Hint
-          if (OB_NOT_NULL(stmt) && OB_NOT_NULL(stmt->get_query_ctx()))
-          {
-            ObGlobalHint &global_hint = stmt->get_query_ctx()->get_query_hint_for_update().get_global_hint();
-
-            // 1. 开启并行DML
-            global_hint.merge_parallel_dml_hint(ObPDMLOption::ENABLE);
-
-            // 2. 设置并行度
-            global_hint.merge_parallel_hint(8);
-            global_hint.merge_dml_parallel_hint(8);
-
-            // 3. 开启旁路导入
-            ObDirectLoadHint direct_load_hint;
-            direct_load_hint.has_direct_ = true; // 关键标志位
-            direct_load_hint.has_no_direct_ = false;
-            direct_load_hint.load_method_ = global_hint.direct_load_hint_.load_method_;
-            direct_load_hint.need_sort_ = global_hint.direct_load_hint_.need_sort_;
-            direct_load_hint.max_error_row_count_ = global_hint.direct_load_hint_.max_error_row_count_;
-            // direct_load_hint.need_sort_ = false; // 根据需求设置
-            // direct_load_hint.has_no_direct_ = false;
-            global_hint.merge_direct_load_hint(direct_load_hint);
-          }
-
           if (OB_FAIL(ObSQLUtils::reconstruct_sql(str_alloc,
                                                   dml_stmts.at(i),
                                                   operators.at(i),
