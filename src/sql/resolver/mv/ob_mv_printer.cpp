@@ -91,6 +91,9 @@ namespace oceanbase
             ObDirectLoadHint direct_load_hint;
             direct_load_hint.has_direct_ = true; // 关键标志位
             direct_load_hint.has_no_direct_ = false;
+            direct_load_hint.load_method_ = global_hint.direct_load_hint_.load_method_;
+            direct_load_hint.need_sort_ = global_hint.direct_load_hint_.need_sort_;
+            direct_load_hint.max_error_row_count_ = global_hint.direct_load_hint_.max_error_row_count_;
             // direct_load_hint.need_sort_ = false; // 根据需求设置
             // direct_load_hint.has_no_direct_ = false;
             global_hint.merge_direct_load_hint(direct_load_hint);
