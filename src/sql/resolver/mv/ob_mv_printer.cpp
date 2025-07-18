@@ -47,12 +47,32 @@ namespace oceanbase
       {
         ret = OB_ERR_UNEXPECTED;
         LOG_WARN("unexpected null", K(ret), K(mv_def_stmt_.get_query_ctx()));
+        return ret;
       }
-      else if (OB_FAIL(init()))
+      if (OB_FAIL(init()))
       {
         LOG_WARN("failed to init mv printer", K(ret));
+        return ret;
       }
-      else if (OB_FAIL(gen_mv_operator_stmts(dml_stmts)))
+      ObGlobalHint &global_hint = mv_def_stmt_.get_query_ctx()->get_query_hint_for_update().get_global_hint();
+      // 1. 开启并行DML
+      global_hint.merge_parallel_dml_hint(ObPDMLOption::ENABLE);
+
+      // 2. 设置并行度
+      global_hint.merge_parallel_hint(8);
+      global_hint.merge_dml_parallel_hint(8);
+
+      // 3. 开启旁路导入
+      ObDirectLoadHint direct_load_hint;
+      direct_load_hint.has_direct_ = true; // 关键标志位
+      direct_load_hint.has_no_direct_ = false;
+      direct_load_hint.load_method_ = global_hint.direct_load_hint_.load_method_;
+      direct_load_hint.need_sort_ = global_hint.direct_load_hint_.need_sort_;
+      direct_load_hint.max_error_row_count_ = global_hint.direct_load_hint_.max_error_row_count_;
+      // direct_load_hint.need_sort_ = false; // 根据需求设置
+      // direct_load_hint.has_no_direct_ = false;
+      global_hint.merge_direct_load_hint(direct_load_hint);
+      if (OB_FAIL(gen_mv_operator_stmts(dml_stmts)))
       {
         LOG_WARN("failed to print mv operators", K(ret));
       }
@@ -71,24 +91,24 @@ namespace oceanbase
         obj_print_params.print_origin_stmt_ = true;
         obj_print_params.not_print_internal_catalog_ = true;
 
-        ObGlobalHint &global_hint = mv_def_stmt_.get_query_ctx()->get_query_hint_for_update().get_global_hint();
-        // 1. 开启并行DML
-        global_hint.merge_parallel_dml_hint(ObPDMLOption::ENABLE);
+        // ObGlobalHint &global_hint = mv_def_stmt_.get_query_ctx()->get_query_hint_for_update().get_global_hint();
+        // // 1. 开启并行DML
+        // global_hint.merge_parallel_dml_hint(ObPDMLOption::ENABLE);
 
-        // 2. 设置并行度
-        global_hint.merge_parallel_hint(8);
-        global_hint.merge_dml_parallel_hint(8);
+        // // 2. 设置并行度
+        // global_hint.merge_parallel_hint(8);
+        // global_hint.merge_dml_parallel_hint(8);
 
-        // 3. 开启旁路导入
-        ObDirectLoadHint direct_load_hint;
-        direct_load_hint.has_direct_ = true; // 关键标志位
-        direct_load_hint.has_no_direct_ = false;
-        direct_load_hint.load_method_ = global_hint.direct_load_hint_.load_method_;
-        direct_load_hint.need_sort_ = global_hint.direct_load_hint_.need_sort_;
-        direct_load_hint.max_error_row_count_ = global_hint.direct_load_hint_.max_error_row_count_;
-        // direct_load_hint.need_sort_ = false; // 根据需求设置
+        // // 3. 开启旁路导入
+        // ObDirectLoadHint direct_load_hint;
+        // direct_load_hint.has_direct_ = true; // 关键标志位
         // direct_load_hint.has_no_direct_ = false;
-        global_hint.merge_direct_load_hint(direct_load_hint);
+        // direct_load_hint.load_method_ = global_hint.direct_load_hint_.load_method_;
+        // direct_load_hint.need_sort_ = global_hint.direct_load_hint_.need_sort_;
+        // direct_load_hint.max_error_row_count_ = global_hint.direct_load_hint_.max_error_row_count_;
+        // // direct_load_hint.need_sort_ = false; // 根据需求设置
+        // // direct_load_hint.has_no_direct_ = false;
+        // global_hint.merge_direct_load_hint(direct_load_hint);
 
         for (int64_t i = 0; OB_SUCC(ret) && i < dml_stmts.count(); ++i)
         {
